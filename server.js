@@ -1,96 +1,84 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const port = 1337;
+// Load the http module.
+var http = require('http');
+// Load the file system module.
+var fs = require('fs');
+var path = require('path');
+// Create a variable that stores the port number (i.e., 1337) at the beginning of your program.
+var port = 1337;
 
-// Serves a static file
-function serveStaticFile(filePath, res) {
-  // Set default status to 200 OK if not already set
-  if (!res.statusCode) {
-    res.statusCode = 200;
-  }
 
-  // Try to read the file
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      // If file read error, return 500 internal server error
-      console.error(`Error reading file ${filePath}:`, err);
-      res.statusCode = 500;
-      res.end('Internal Server Error');
-      return;
-    }
+// Define the public directory that contains the HTML (and related) files.
+var publicDir = path.join(__dirname, 'public');
 
-    // Determine content type based on file extension
-    const ext = path.extname(filePath).toLowerCase();
-    let contentType = 'text/html';
-    
-    switch (ext) {
-      case '.css':
-        contentType = 'text/css';
-        break;
-      case '.jpg':
-      case '.jpeg':
-        contentType = 'image/jpeg';
-        break;
-      case '.png':
-        contentType = 'image/png';
-        break;
-      case '.gif':
-        contentType = 'image/gif';
-        break;
-    }
 
-    // Serve the file with appropriate headers
-    res.setHeader('Content-Type', contentType);
-    res.end(data);
-  });
+/*
+ * Function: serveStaticFile
+ * Reads the file located at the path being passed in.
+ * Checks if there is no HTTP status message and sets it to the code telling the browser that everything is okay.
+ * Tries to read the file. If there is an error, it tells the browser that there was an internal error.
+ * Otherwise, it provides the browser with the response code, content type and data that was passed in.
+ */
+function serveStaticFile(response, filePath, contentType, responseCode) {
+    responseCode = responseCode || 200;
+    fs.readFile(filePath, function(err, data) {
+        if (err) {
+            console.error("Error reading file:", filePath, err);
+            response.writeHead(500, {'Content-Type': 'text/plain'});
+            response.end('500 - Internal Error');
+        } else {
+            response.writeHead(responseCode, {'Content-Type': contentType});
+            response.end(data);
+        }
+    });
 }
 
-// Create HTTP server
-const server = http.createServer((req, res) => {
-  // Normalize URL: remove query string and convert to lowercase
-  let pathname = req.url.split('?')[0].toLowerCase();
-  
-  // Remove trailing slash if present
-  if (pathname.length > 1 && pathname.endsWith('/')) {
-    pathname = pathname.slice(0, -1);
-  }
 
-  console.log(`Request received for: ${pathname}`);
+// Helper function to get MIME type for images
+function getMimeType(ext) {
+    switch (ext) {
+        case '.png':
+            return 'image/png';
+        case '.jpg':
+        case '.jpeg':
+            return 'image/jpeg';
+        case '.gif':
+            return 'image/gif';
+        default:
+            return 'application/octet-stream';
+    }
+}
 
-  // Route handling
-  if (pathname === '/' || pathname === '/index') {
-    serveStaticFile('./public/index.html', res);
-  } 
-  else if (pathname === '/about') {
-    serveStaticFile('./public/about.html', res);
-  } 
-  else if (pathname === '/contact') {
-    serveStaticFile('./public/contact.html', res);
-  }
-  // Handle CSS files
-  else if (pathname === '/style.css') {
-    serveStaticFile('./public/css/style.css', res);
-  }
-  else if (pathname === '/css/style.css') {
-    serveStaticFile('./public/css/style.css', res);
-  }
-  // Handle image files - assuming they might be referenced directly from public or from an images subfolder
-  else if (pathname.startsWith('/images/')) {
-    serveStaticFile('./public' + pathname, res);
-  }
-  else if (pathname.match(/\.(jpg|jpeg|png|gif)$/)) {
-    // For direct image references
-    serveStaticFile('./public' + pathname, res);
-  }
-  else {
-    // 404 Not Found
-    res.statusCode = 404;
-    serveStaticFile('./public/404.html', res);
-  }
+
+// Use the createServer method from the http module to create an HTTP server.
+var server = http.createServer(function(request, response) {
+    // Normalize the URL by removing the querystring, optional trailing slash, and making it lowercase.
+    var parsedUrl = new URL(request.url, `http://${request.headers.host}`);
+    var pathname = parsedUrl.pathname.toLowerCase().replace(/\/$/, '');
+   
+    // Serve each web page based on the path that a user has navigated to.
+    if (pathname === '' || pathname === '/index') {
+        // Serve the index page if root or /index is requested.
+        serveStaticFile(response, path.join(publicDir, 'index.html'), 'text/html', 200);
+    } else if (pathname.endsWith('.html')) {
+        // Serve any HTML file under the public folder.
+        serveStaticFile(response, path.join(publicDir, pathname), 'text/html', 200);
+    } else if (pathname.endsWith('.css')) {
+        // Serve the CSS file inside the css folder under the public folder.
+        serveStaticFile(response, path.join(publicDir, pathname), 'text/css', 200);
+    } else if (pathname.startsWith('/images/')) {
+        // Serve each image inside the images folder under the public folder.
+        var ext = path.extname(pathname);
+        var mimeType = getMimeType(ext);
+        serveStaticFile(response, path.join(publicDir, pathname), mimeType, 200);
+    } else {
+        // Default case: serve the 404 page from the public folder and set the HTTP status code to 404.
+        serveStaticFile(response, path.join(publicDir, '404.html'), 'text/html', 404);
+    }
 });
 
-// Set the port and start the server
-server.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}/`);
+
+// Tell the server what port to be on.
+server.listen(port, function() {
+    // Output the URL to access the server to the console.
+    console.log('Server is running at: http://localhost:' + port);
 });
