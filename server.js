@@ -6,10 +6,8 @@ var path = require('path');
 // Create a variable that stores the port number (i.e., 1337) at the beginning of your program.
 var port = 1337;
 
-
 // Define the public directory that contains the HTML (and related) files.
 var publicDir = path.join(__dirname, 'public');
-
 
 /*
  * Function: serveStaticFile
@@ -32,7 +30,6 @@ function serveStaticFile(response, filePath, contentType, responseCode) {
     });
 }
 
-
 // Helper function to get MIME type for images
 function getMimeType(ext) {
     switch (ext) {
@@ -48,17 +45,19 @@ function getMimeType(ext) {
     }
 }
 
-
 // Use the createServer method from the http module to create an HTTP server.
 var server = http.createServer(function(request, response) {
     // Normalize the URL by removing the querystring, optional trailing slash, and making it lowercase.
     var parsedUrl = new URL(request.url, `http://${request.headers.host}`);
     var pathname = parsedUrl.pathname.toLowerCase().replace(/\/$/, '');
-   
+    
     // Serve each web page based on the path that a user has navigated to.
     if (pathname === '' || pathname === '/index') {
         // Serve the index page if root or /index is requested.
         serveStaticFile(response, path.join(publicDir, 'index.html'), 'text/html', 200);
+    } else if (!path.extname(pathname)) {
+        // If no file extension is provided, assume you want an HTML file.
+        serveStaticFile(response, path.join(publicDir, pathname + '.html'), 'text/html', 200);
     } else if (pathname.endsWith('.html')) {
         // Serve any HTML file under the public folder.
         serveStaticFile(response, path.join(publicDir, pathname), 'text/html', 200);
@@ -75,7 +74,6 @@ var server = http.createServer(function(request, response) {
         serveStaticFile(response, path.join(publicDir, '404.html'), 'text/html', 404);
     }
 });
-
 
 // Tell the server what port to be on.
 server.listen(port, function() {
